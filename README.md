@@ -12,6 +12,8 @@ A local account/password memo for the DeepSeek Harness Web UI. Entries are encry
 {"action":"install_bundle","target":"<account-vault 目录的绝对路径>"}
 ```
 
+例如 Windows 路径 `C:\Users\你\Documents\account-vault`：将路径填入 `target`（JSON 中每个反斜杠写成 `\\`）。也可以在 Harness 对话中告诉 agent：「请用 plugin_manager 安装这个本地插件目录：<绝对路径>」。
+
 这不是终端命令。选择当前 profile 并按界面提示批准安装；安装会影响该 profile 的所有会话。安装完成后查看返回的 `application` 和 `warnings`，按结果指引操作，必要时刷新当前 Harness 页面。成功加载后可从侧边栏打开「账号保险库」。包名保持 `@local/dsh-account-vault`，`private: true` 是有意保留的；无需发布到 npm。安装方式及源码变更是否即时生效取决于当前 Harness 的构建与安装环境，不应假设刷新一定会重新构建插件。
 
 Download or clone this directory, then invoke the Harness **`plugin_manager` tool** with `action: install_bundle` and the directory's absolute path as `target` (not a shell command). Installation affects the current profile. Check `application` and `warnings`, follow any restart instructions, and refresh the existing Web page if needed. The package intentionally remains private and uses the `@local` name.
@@ -26,13 +28,19 @@ Download or clone this directory, then invoke the Harness **`plugin_manager` too
 
 **English summary:** Separate vault passwords do not sandbox an agent or conceal other vaults. Anyone with same-origin script, browser, extension, host, or device access may read or modify ciphertext and capture secrets while unlocked; offline password guessing is possible. Metadata remains visible. Use a separate environment without real secrets for untrusted testers, strong unique passwords, and protected backups. Locking and clipboard cleanup are best effort, not secure erasure.
 
-## 功能与备份 / Features and backups
+## 开始使用
 
-- 创建、解锁和锁定保险库；空闲自动锁定默认 5 分钟，可选 1、5、15、30 或 60 分钟。
-- 账号条目的新增、编辑、删除、搜索；密码生成、临时显示及复制。
-- 主保险库可创建附加库；每库使用独立主密码。设置页显示库的存在与类型。
-- 主库导出包含所有库；附加库导出只包含当前库。备份仍需各自密码解锁。
-- 导入默认合并并保留本机版本；「覆盖全部」会替换本机所有库并需再次确认。没有主库时可从备份合并恢复。测试恢复时应使用独立环境和测试数据。
+1. 在侧边栏打开「账号保险库」。首次使用时创建主保险库，输入并确认主密码，勾选无法找回密码的提示。至少需要 8 个字符，但请使用更强且独立的密码。
+2. 解锁后选择「添加账号」，填写名称和密码，按需填写账号、网址和备注并保存。列表支持搜索、编辑、删除，以及生成、显示和复制密码。
+3. 在「设置」中可修改当前库的主密码、调整空闲自动锁定时间，或创建附加保险库。默认空闲 5 分钟锁定，可选 1、5、15、30 或 60 分钟；离开面板也会锁定。
+4. 主库可以创建附加库；附加库不能继续创建库。每套库使用不同密码，在锁定界面输入对应密码打开。设置页显示库的存在和类型；这些限制不是安全隔离，见上文。
+
+## 备份与恢复
+
+- 在已解锁库的「设置」中选择「导出备份」。从**主库**导出包含本机全部库；从**附加库**导出只包含该附加库，不包含主库。每套库恢复后仍需各自的密码，导出不会移除本机数据。
+- 已有主库时，在主库「设置」中选择「导入备份」并选择文件；附加库中不能导入。预览会显示新增、跳过及冲突数量。「合并导入」只添加尚不存在的库，遇到已有库即保留本机版本，**不会合并库内账号或用备份更新已有库**。
+- 「覆盖全部」需再次确认，会用文件中的库替换本机所有库；如果文件只有附加库，主库也会被移除。覆盖前先安全备份现有数据。没有主库时，可在创建界面选择「从备份文件恢复」进行合并恢复。
+- 备份是加密数据及可见元数据，不是无需密码的恢复密钥。安全保管备份和对应密码；修改主密码后，旧备份仍需旧密码。使用独立环境和虚构数据验证导出与恢复，不要把真实库交给不受信任的测试者。
 
 ## 贡献与验证 / Contributing and validation
 
