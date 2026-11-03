@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-account-vault",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,7 @@
   "bugs": { "url": "https://github.com/Veagau/dsh-account-vault/issues" },
   "homepage": "https://github.com/Veagau/dsh-account-vault#readme",
   "keywords": ["deepseek-harness", "dsh", "plugin", "account-vault", "password-manager"],
-  "scripts": { "check": "node scripts/check.mjs" },
+  "scripts": { "check": "node scripts/check.mjs", "test": "node --test scripts/runtime.test.mjs" },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

@@ -187,6 +187,7 @@ window.__ModuleLoader__.load({
       'err.cryptoUnavailable': 'Web Crypto is unavailable. Open the Harness over HTTPS or localhost.',
       'err.storageUnavailable': 'Browser storage is unavailable, so the vault cannot be saved.',
       'err.importInvalid': 'That file is not a valid account vault backup.',
+      'err.storageCorrupt': 'Stored vault data cannot be read or uses an unsupported format. No changes were made; preserve the browser data and seek recovery help.',
       'err.passwordInUse':
         'This password already opens another vault here. Pick a different password, otherwise it would unlock the wrong vault.',
       'import.title': 'Import a backup file',
@@ -346,6 +347,7 @@ window.__ModuleLoader__.load({
       'err.cryptoUnavailable': '\u5f53\u524d\u73af\u5883\u65e0\u6cd5\u4f7f\u7528 Web Crypto\uff0c\u8bf7\u901a\u8fc7 HTTPS \u6216 localhost \u6253\u5f00\u3002',
       'err.storageUnavailable': '\u6d4f\u89c8\u5668\u5b58\u50a8\u4e0d\u53ef\u7528\uff0c\u65e0\u6cd5\u4fdd\u5b58\u4fdd\u9669\u5e93\u3002',
       'err.importInvalid': '\u8be5\u6587\u4ef6\u4e0d\u662f\u6709\u6548\u7684\u4fdd\u9669\u5e93\u5907\u4efd\u3002',
+      'err.storageCorrupt': '无法读取本地保险库或其格式不受支持。未修改数据；请保留浏览器数据并寻求恢复帮助。',
       'err.generic': '\u64cd\u4f5c\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002',
       'strength.weak': '\u5f31',
       'strength.medium': '\u4e2d\u7b49',
@@ -586,12 +588,30 @@ window.__ModuleLoader__.load({
       return !!value && typeof value.iv === 'string' && typeof value.ct === 'string';
     }
 
+    // The writer uses padded, canonical standard base64 (not base64url).
+    function validBase64Length(value, minimum, exact) {
+      if (typeof value !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) return false;
+      try {
+        const decoded = window.atob(value);
+        return decoded.length >= minimum && (!exact || decoded.length === minimum) && window.btoa(decoded) === value;
+      } catch (err) {
+        return false;
+      }
+    }
+
     function validateRecord(record) {
-      if (!record || record.schema !== SCHEMA) return null;
-      if (!record.kdf || typeof record.kdf.salt !== 'string' || !isCipher(record.cipher)) return null;
-      const iterations = Number(record.kdf.iterations);
-      if (!Number.isFinite(iterations) || iterations < KDF_MIN_ITERATIONS) return null;
-      if (iterations > KDF_MAX_ITERATIONS) return null;
+      if (!record || record.schema !== SCHEMA || record.version !== VAULT_VERSION) return null;
+      if (!record.kdf || !isCipher(record.cipher)) return null;
+      // Older records may omit the descriptive algorithm field; decryption has always
+      // used PBKDF2-SHA-256. Never accept an explicitly different algorithm.
+      if (record.kdf.algo !== undefined && record.kdf.algo !== 'PBKDF2-SHA-256') return null;
+      const input = record.kdf.iterations;
+      if (typeof input !== 'number' && !(typeof input === 'string' && /^\d+$/.test(input))) return null;
+      const iterations = Number(input);
+      if (!Number.isInteger(iterations) || iterations < KDF_MIN_ITERATIONS || iterations > KDF_MAX_ITERATIONS) return null;
+      if (!validBase64Length(record.kdf.salt, 16, true) ||
+          !validBase64Length(record.cipher.iv, 12, true) ||
+          !validBase64Length(record.cipher.ct, 16, false)) return null;
       return record;
     }
 
@@ -615,15 +635,10 @@ window.__ModuleLoader__.load({
       } catch (err) {
         return null;
       }
-      if (data && data.schema === FILE_SCHEMA && Array.isArray(data.vaults)) {
-        const vaults = [];
-        data.vaults.forEach(function (item) {
-          const record = validateRecord(item);
-          if (record) vaults.push(record);
-        });
-        return vaults.length
-          ? { schema: FILE_SCHEMA, version: FILE_VERSION, vaults: vaults }
-          : null;
+      if (data && data.schema === FILE_SCHEMA) {
+        if (data.version !== FILE_VERSION || !Array.isArray(data.vaults) || !data.vaults.length ||
+            !data.vaults.every(validateRecord)) return null;
+        return { schema: FILE_SCHEMA, version: FILE_VERSION, vaults: data.vaults };
       }
       const single = validateRecord(data);
       if (single) return { schema: FILE_SCHEMA, version: FILE_VERSION, vaults: [single] };
@@ -646,11 +661,7 @@ window.__ModuleLoader__.load({
     }
 
     function readFileRaw() {
-      try {
-        return window.localStorage.getItem(STORAGE_KEY);
-      } catch (err) {
-        return null;
-      }
+      return window.localStorage.getItem(STORAGE_KEY);
     }
 
     function writeFileRaw(raw) {
@@ -658,33 +669,23 @@ window.__ModuleLoader__.load({
     }
 
     function clearFileRaw() {
-      try {
-        window.localStorage.removeItem(STORAGE_KEY);
-      } catch (err) {
-        /* storage may be unavailable; nothing to clear */
-      }
+      window.localStorage.removeItem(STORAGE_KEY);
     }
 
     function readLegacyRaw() {
-      try {
-        return window.localStorage.getItem(LEGACY_KEY);
-      } catch (err) {
-        return null;
-      }
+      return window.localStorage.getItem(LEGACY_KEY);
     }
 
     function clearLegacyRaw() {
-      try {
-        window.localStorage.removeItem(LEGACY_KEY);
-      } catch (err) {
-        /* nothing to clear */
-      }
+      window.localStorage.removeItem(LEGACY_KEY);
     }
 
     /* Load the vault file, migrating a single-vault v1 record in place (no password needed)
        and giving every record a stable id, so a later backup import can be merged safely. */
     function loadVaultFile() {
-      const file = parseVaultFile(readFileRaw());
+      const raw = readFileRaw();
+      const file = parseVaultFile(raw);
+      if (raw !== null && !file) throw new Error('Invalid or unsupported stored vault file');
       if (file) {
         const vaults = ensureVaultIds(file.vaults);
         const changed = vaults.some(function (item, i) {
@@ -699,18 +700,22 @@ window.__ModuleLoader__.load({
         }
         return { schema: FILE_SCHEMA, version: FILE_VERSION, vaults: vaults };
       }
-      const legacy = parseRecord(readLegacyRaw());
+      const legacyRaw = readLegacyRaw();
+      const legacy = parseRecord(legacyRaw);
+      if (legacyRaw !== null && !legacy) throw new Error('Invalid or unsupported legacy vault');
       if (legacy) {
         const migrated = {
           schema: FILE_SCHEMA,
           version: FILE_VERSION,
           vaults: ensureVaultIds([legacy]),
         };
+        // Do not expose a deletable in-memory vault until the new copy is durable.
+        // If writing fails, propagate the error and leave the legacy bytes untouched.
+        writeFileRaw(JSON.stringify(migrated));
         try {
-          writeFileRaw(JSON.stringify(migrated));
           clearLegacyRaw();
         } catch (err) {
-          /* read-only storage: fall back to the in-memory view */
+          /* The migrated copy is saved; retaining the old copy is safe. */
         }
         return migrated;
       }
@@ -2231,7 +2236,13 @@ window.__ModuleLoader__.load({
 
       /* initial read; wiping the key on unmount also handles "leave the panel" */
       useEffect(function () {
-        const file = loadVaultFile();
+        let file;
+        try {
+          file = loadVaultFile();
+        } catch (err) {
+          setStatus('storageError');
+          return undefined;
+        }
         const loaded = file ? file.vaults : [];
         vaultsRef.current = loaded;
         setVaults(loaded);
@@ -2446,9 +2457,9 @@ window.__ModuleLoader__.load({
           return i !== index;
         });
         try {
+          clearLegacyRaw();
           if (remainder.length) saveVaultFile(remainder);
           else clearFileRaw();
-          clearLegacyRaw();
         } catch (err) {
           showToast('err.saveFailed');
           return;
@@ -2480,8 +2491,8 @@ window.__ModuleLoader__.load({
 
       const resetAllVaults = useCallback(function () {
         try {
-          clearFileRaw();
           clearLegacyRaw();
+          clearFileRaw();
           clearSettingsRaw();
         } catch (err) {
           showToast('err.saveFailed');
@@ -2943,7 +2954,9 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'dsh-av-body' },
           status === 'loading' ? null : null,
-          status === 'create'
+          status === 'storageError'
+            ? h('div', { className: 'dsh-av-column' }, h('div', { className: 'dsh-av-banner dsh-av-banner--error', role: 'alert' }, T('err.storageCorrupt')))
+            : status === 'loading' ? null : status === 'create'
             ? h(CreateVault, {
                 onSubmit: function (password) {
                   return createVault(password, 'main');

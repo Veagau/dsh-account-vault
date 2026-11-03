@@ -40,19 +40,20 @@ Download or clone this directory, then invoke the Harness **`plugin_manager` too
 
 ```sh
 npm run check
+npm test
 npm pack --dry-run --offline --ignore-scripts
 ```
 
-无需安装项目依赖或联网。第一条命令检查仓库中 JavaScript 的语法、JSON 能否解析以及关键文件存在且非空；第二条预览 npm 打包内容，不发布包。GitHub Actions 在 Node 20、22、24 上运行这些检查（Actions 本身需下载运行环境）。检查不执行插件、不验证 YAML 或包内容的语义，也不测试 UI、加密安全性、备份恢复、Harness 集成或浏览器兼容性。通过 CI 不代表安全审计或功能正确。Node 检查版本不等于 Harness 的支持版本：**尚未建立或验证 Harness / 浏览器版本兼容矩阵**。
+无需安装项目依赖或联网。依次运行语法和发布文件检查、合成数据运行时回归测试、npm 包内容预览（不会发布）。GitHub Actions 在 Node 20、22、24 上执行这些检查（Actions 本身需下载运行环境）。测试不覆盖完整 UI、加密安全性、真实浏览器备份恢复或 Harness 集成；通过 CI 不代表安全审计或功能正确。Node 检查版本不等于 Harness 的支持版本：**尚未建立或验证 Harness / 浏览器版本兼容矩阵**。
 
 ## 已知风险与报告 / Known risks and reporting
 
-- `clearFileRaw` 捕获并忽略 localStorage 删除异常；删除失败可能未被告知，不能据此确认数据已删除。
-- 备份解析会跳过不符合记录格式的条目，只要仍有有效条目就可能继续导入；尤其覆盖导入可能导致部分数据遗漏。先安全保留原始备份，在隔离环境用测试数据验证恢复。
+- 导入遇到未知版本或不符合格式的记录时整体拒绝；本地数据无法读取时阻止覆盖。格式检查不能在未提供密码时证明密文未被篡改或能够解锁，覆盖前仍应安全保存已有备份，并在隔离环境中验证恢复。
+- localStorage 不支持跨键事务；涉及多个键的删除若中途失败，可能只完成一部分。删除前请先安全备份，错误提示出现时不要假定所有数据均已删除。
 
-以上为已发现风险，**尚未修复**。发现其他问题时，不要在公开 Issue、PR 或日志中发布真实凭据、主密码、备份或可识别的敏感数据。优先通过 [GitHub 私密漏洞报告](https://github.com/Veagau/dsh-account-vault/security)（如仓库启用）联系维护者；若不可用，可先提交不含敏感细节的公开 Issue，请求私下联系方式。不要在得到安全渠道之前发送敏感材料。
+发现其他问题时，不要在公开 Issue、PR 或日志中发布真实凭据、主密码、备份或可识别的敏感数据。优先通过 [GitHub 私密漏洞报告](https://github.com/Veagau/dsh-account-vault/security)（如仓库启用）联系维护者；若不可用，可先提交不含敏感细节的公开 Issue，请求私下联系方式。不要在得到安全渠道之前发送敏感材料。
 
-**English:** Checks cover JS syntax, JSON parsing, required nonempty files and an offline npm pack preview, not runtime, security, integration or restore correctness. Harness/browser compatibility has not been established. Storage deletion errors can be swallowed and malformed backup records silently skipped; these are not fixed. Report sensitive findings privately if enabled, never post real credentials or backups publicly.
+**English:** Automated checks include synthetic-data runtime tests, not a security audit or full browser, integration, or restore testing. Harness/browser compatibility has not been established. Multi-key storage deletion is not transactional. Report sensitive findings privately if enabled; never post real credentials or backups publicly.
 
 ## 文件 / Files
 
