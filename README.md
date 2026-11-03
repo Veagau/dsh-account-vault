@@ -1,50 +1,43 @@
 # 账号保险库 / Account Vault
 
-DeepSeek Harness Web UI 的本地账号密码备忘插件。账号内容在浏览器中使用主密码派生的密钥加密，保存在当前页面 origin 的 localStorage；支持多套密码不同的保险库及加密备份。
+[English](#english)
 
-A local account/password memo for the DeepSeek Harness Web UI. Entries are encrypted in the browser and stored in the current page origin's localStorage. Multiple independently encrypted vaults and encrypted backups are supported.
+DeepSeek Harness Web UI 的本地账号密码备忘插件。账号在浏览器中加密，保存在当前页面 origin 的 localStorage；支持多套保险库和加密备份。
 
-## 安装 / Install
+## 安装
 
-需要支持插件 bundle 的 DeepSeek Harness Web 环境，以及可用的浏览器 localStorage 和 Web Crypto（通常要求 HTTPS 或 localhost）。先将本目录下载或克隆到自己的机器，保留其中的文件，然后在 Harness 中调用 **`plugin_manager` 工具**，使用以下参数：
+需要支持 bundle 的 DeepSeek Harness Web 环境，以及可用的 localStorage 和 Web Crypto（通常需要 HTTPS 或 localhost）。下载或克隆本目录后，在 Harness 中调用 **`plugin_manager` 工具**：
 
 ```json
 {"action":"install_bundle","target":"<account-vault 目录的绝对路径>"}
 ```
 
-例如 Windows 路径 `C:\Users\你\Documents\account-vault`：将路径填入 `target`（JSON 中每个反斜杠写成 `\\`）。也可以在 Harness 对话中告诉 agent：「请用 plugin_manager 安装这个本地插件目录：<绝对路径>」。
+这不是终端命令。Windows 路径在 JSON 中需将反斜杠写成 `\\`；也可以请 Harness agent 用该工具安装本地目录。安装影响当前 profile 的所有会话。查看返回的 `application` 和 `warnings`，按提示操作，必要时刷新页面。加载成功后从侧边栏打开「账号保险库」。插件保持私有，无需发布到 npm；源码修改是否生效取决于构建和安装环境，刷新不一定会重新构建。
 
-这不是终端命令。选择当前 profile 并按界面提示批准安装；安装会影响该 profile 的所有会话。安装完成后查看返回的 `application` 和 `warnings`，按结果指引操作，必要时刷新当前 Harness 页面。成功加载后可从侧边栏打开「账号保险库」。包名保持 `@local/dsh-account-vault`，`private: true` 是有意保留的；无需发布到 npm。安装方式及源码变更是否即时生效取决于当前 Harness 的构建与安装环境，不应假设刷新一定会重新构建插件。
+## 使用
 
-Download or clone this directory, then invoke the Harness **`plugin_manager` tool** with `action: install_bundle` and the directory's absolute path as `target` (not a shell command). Installation affects the current profile. Check `application` and `warnings`, follow any restart instructions, and refresh the existing Web page if needed. The package intentionally remains private and uses the `@local` name.
-
-## 安全与信任边界 / Security and trust boundaries
-
-- 新建保险库使用 PBKDF2-SHA-256（600,000 次迭代、每库随机 16 字节盐）派生不可导出的 AES-256-GCM 密钥；每次加密使用随机 12 字节 IV 和固定附加认证数据。账号数组加密保存；主密码不会由插件写入 localStorage。请使用强且独立的主密码：持有密文的人可以离线猜测密码，8 字符的最低要求不等于安全强度。
-- localStorage 和备份**并非全部密文**：库数量、主/附加标签、稳定 ID、创建及更新时间、KDF 参数、盐、IV 和密文长度等元数据可见。备份文件和密文也需要安全保管；删除浏览器数据不会删除已经导出的备份。
-- 附加库仅提供**不同密码下的加密数据隔离和界面操作限制**，不是独立安全沙箱，也不是隐藏保险库存在的可否认加密。普通 UI 操作使用附加密码只能打开相应账本，但同源脚本、浏览器扩展、具有浏览器/系统访问权限的 agent、主机进程或恶意软件可能读取、修改或删除全部 localStorage，复制密文并离线猜测密码，或在输入、解锁及显示时获取明文。界面隐藏按钮不能阻止具有这些权限的操作者。**不要向不受信任的 agent 或测试者开放含真实保险库的浏览器、会话或设备**；使用单独的浏览器配置/环境，且其中绝不放入真实库或主密码。
-- 解锁时密钥和明文存在页面内存及 UI 中；锁定、离开面板或卸载会尝试丢弃引用，但 JavaScript、浏览器、系统和扩展无法保证安全擦除内存、截图、日志、剪贴板历史或交换文件。复制密码后约 30 秒会尝试清空剪贴板，可能因权限、页面关闭等失败，也可能覆盖此后复制的其他内容；不保证清除剪贴板历史。显示密码约 20 秒后尝试隐藏。
-- 数据按浏览器和 origin 隔离；清除浏览器数据、换浏览器或更换 origin 可能丢失数据。请离线安全保存加密备份并验证恢复。忘记主密码无法恢复内容。此插件未声明经过独立安全审计，不应将其作为唯一凭据存储方案。
-
-**English summary:** Separate vault passwords do not sandbox an agent or conceal other vaults. Anyone with same-origin script, browser, extension, host, or device access may read or modify ciphertext and capture secrets while unlocked; offline password guessing is possible. Metadata remains visible. Use a separate environment without real secrets for untrusted testers, strong unique passwords, and protected backups. Locking and clipboard cleanup are best effort, not secure erasure.
-
-## 开始使用
-
-1. 在侧边栏打开「账号保险库」。首次使用时创建主保险库，输入并确认主密码，勾选无法找回密码的提示。至少需要 8 个字符，但请使用更强且独立的密码。
-2. 解锁后选择「添加账号」，填写名称和密码，按需填写账号、网址和备注并保存。列表支持搜索、编辑、删除，以及生成、显示和复制密码。
-3. 在「设置」中可修改当前库的主密码、调整空闲自动锁定时间，或创建附加保险库。默认空闲 5 分钟锁定，可选 1、5、15、30 或 60 分钟；离开面板也会锁定。
-4. 主库可以创建附加库；附加库不能继续创建库。每套库使用不同密码，在锁定界面输入对应密码打开。设置页显示库的存在和类型；这些限制不是安全隔离，见上文。
+1. 首次打开时创建主保险库，确认密码无法找回的提示。主密码至少 8 个字符，请使用更强且独立的密码。
+2. 解锁后选择「添加账号」；名称和密码必填，账号、网址和备注可选。列表支持搜索、编辑、删除以及生成、显示和复制密码。
+3. 在「设置」中修改当前库的主密码、调整自动锁定时间或创建附加库。默认空闲 5 分钟锁定，可选 1、5、15、30 或 60 分钟；离开面板也会锁定。只有主库可以创建附加库，各库用不同密码解锁。
 
 ## 备份与恢复
 
-- 在已解锁库的「设置」中选择「导出备份」。从**主库**导出包含本机全部库；从**附加库**导出只包含该附加库，不包含主库。每套库恢复后仍需各自的密码，导出不会移除本机数据。
-- 已有主库时，在主库「设置」中选择「导入备份」并选择文件；附加库中不能导入。预览会显示新增、跳过及冲突数量。「合并导入」只添加尚不存在的库，遇到已有库即保留本机版本，**不会合并库内账号或用备份更新已有库**。
-- 「覆盖全部」需再次确认，会用文件中的库替换本机所有库；如果文件只有附加库，主库也会被移除。覆盖前先安全备份现有数据。没有主库时，可在创建界面选择「从备份文件恢复」进行合并恢复。
-- 备份是加密数据及可见元数据，不是无需密码的恢复密钥。安全保管备份和对应密码；修改主密码后，旧备份仍需旧密码。使用独立环境和虚构数据验证导出与恢复，不要把真实库交给不受信任的测试者。
+- 在已解锁库的「设置」中导出备份：主库导出全部库，附加库只导出自身。导出不删除本地数据。
+- 已有主库时，在主库「设置」中导入；没有主库时，可在创建界面选择「从备份文件恢复」并合并恢复。附加库不能导入。
+- 导入预览显示新增、跳过和冲突数量。「合并导入」只添加不存在的库，保留已有本地库，不合并账号或更新已有库。「覆盖全部」需再次确认，以文件内容替换所有本地库；仅含附加库的文件也会移除主库。覆盖前先备份。
+- 备份仍需各库对应的密码；修改密码后，旧备份仍需旧密码。安全保存备份和密码，并在独立环境中用虚构数据验证恢复。
 
-## 贡献与验证 / Contributing and validation
+## 安全边界
 
-欢迎通过 [GitHub Issues](https://github.com/Veagau/dsh-account-vault/issues) 讨论非敏感问题，或提交 Pull Request。请使用虚构数据和独立的测试环境，勿提交真实账号、密码、主密码、备份或其他凭据。修改后使用已安装的 Node.js 和 npm，在仓库根目录运行：
+- 新建库使用 PBKDF2-SHA-256（600,000 次迭代、随机 16 字节盐）派生 AES-256-GCM 密钥，每次加密使用随机 12 字节 IV。插件不将主密码写入 localStorage，但密文可被离线猜密；8 字符只是最低要求。
+- localStorage 和备份并非全部密文：库数量、类型、ID、时间、KDF 参数、盐、IV 和密文长度等元数据可见。附加库不是安全沙箱，也不能隐藏库的存在。同源脚本、浏览器扩展、具有浏览器或系统访问权限的 agent、主机进程或恶意软件可能读取、修改或删除数据，或在输入和解锁时获取明文。不要让不受信任的 agent 或测试者访问含真实凭据的浏览器、会话或设备；使用不含真实秘密的独立环境。
+- 解锁时明文和密钥存在页面内存及界面中。锁定不能保证擦除内存或剪贴板历史；复制密码后会尝试清空剪贴板，可能失败或覆盖后来复制的内容。
+- 数据随浏览器和 origin 隔离；清除浏览器数据、更换浏览器或 origin 可能丢失数据。忘记密码无法恢复。备份需妥善保管，清除浏览器数据不会删除已导出的备份。本插件未声明经过独立安全审计，不应作为唯一凭据存储方案。
+- 导入会拒绝未知版本或格式无效的记录；本地数据不可读时阻止覆盖。格式检查不能在没有密码时证明密文未被篡改或可解锁。localStorage 的跨键删除不是事务，失败时可能只删除一部分；删除前先备份。
+
+## 验证与贡献
+
+在本目录用已安装的 Node.js 和 npm 运行：
 
 ```sh
 npm run check
@@ -52,24 +45,59 @@ npm test
 npm pack --dry-run --offline --ignore-scripts
 ```
 
-无需安装项目依赖或联网。依次运行语法和发布文件检查、合成数据运行时回归测试、npm 包内容预览（不会发布）。GitHub Actions 在 Node 20、22、24 上执行这些检查（Actions 本身需下载运行环境）。测试不覆盖完整 UI、加密安全性、真实浏览器备份恢复或 Harness 集成；通过 CI 不代表安全审计或功能正确。Node 检查版本不等于 Harness 的支持版本：**尚未建立或验证 Harness / 浏览器版本兼容矩阵**。
+这些检查无需安装项目依赖或联网；CI 使用 Node 20、22、24。运行时测试使用合成数据，不覆盖完整 UI、加密安全性、真实浏览器备份恢复或 Harness 集成。通过检查不等于安全审计；Harness 和浏览器的版本兼容矩阵尚未建立或验证。
 
-## 已知风险与报告 / Known risks and reporting
+欢迎通过 [Issues](https://github.com/Veagau/dsh-account-vault/issues) 或 Pull Request 贡献，请勿提交真实凭据或备份。安全问题优先使用 [GitHub 私密漏洞报告](https://github.com/Veagau/dsh-account-vault/security)（如已启用）；否则先提交不含敏感细节的 Issue，请求私下联系方式。
 
-- 导入遇到未知版本或不符合格式的记录时整体拒绝；本地数据无法读取时阻止覆盖。格式检查不能在未提供密码时证明密文未被篡改或能够解锁，覆盖前仍应安全保存已有备份，并在隔离环境中验证恢复。
-- localStorage 不支持跨键事务；涉及多个键的删除若中途失败，可能只完成一部分。删除前请先安全备份，错误提示出现时不要假定所有数据均已删除。
+## English
 
-发现其他问题时，不要在公开 Issue、PR 或日志中发布真实凭据、主密码、备份或可识别的敏感数据。优先通过 [GitHub 私密漏洞报告](https://github.com/Veagau/dsh-account-vault/security)（如仓库启用）联系维护者；若不可用，可先提交不含敏感细节的公开 Issue，请求私下联系方式。不要在得到安全渠道之前发送敏感材料。
+A local account and password memo for the DeepSeek Harness Web UI. Entries are encrypted in the browser and stored in localStorage for the page's origin. It supports multiple vaults and encrypted backups.
 
-**English:** Automated checks include synthetic-data runtime tests, not a security audit or full browser, integration, or restore testing. Harness/browser compatibility has not been established. Multi-key storage deletion is not transactional. Report sensitive findings privately if enabled; never post real credentials or backups publicly.
+### Install
 
-## 文件 / Files
+You need a Harness Web environment that supports bundles, plus localStorage and Web Crypto (usually HTTPS or localhost). Download or clone this directory, then invoke the Harness **`plugin_manager` tool**:
 
-- `package.json`、`cordis.patch.yml`：bundle 声明和配置。
-- `index.js`、`client.js`：Host 入口、Web UI 和加密逻辑。
-- `locale/`、`icon.svg`：显示资源。
-- `LICENSE`：MIT 许可证。
+```json
+{"action":"install_bundle","target":"<absolute path to the account-vault directory>"}
+```
+
+This is not a shell command. Escape Windows path backslashes as `\\` in JSON, or ask a Harness agent to install the local directory with the tool. Installation affects all sessions in the current profile. Check `application` and `warnings` in the result, follow the instructions, and refresh the page if needed. Once loaded, open **Account Vault** from the sidebar. The package remains private and does not need publishing to npm; whether source changes take effect depends on the build and installation environment, and refreshing does not necessarily rebuild the plugin.
+
+### Use
+
+1. On first use, create a main vault and acknowledge that a forgotten password cannot be recovered. The minimum is 8 characters; choose a stronger, unique master password.
+2. Unlock it and select **Add account**. Name and password are required; username, website and notes are optional. You can search, edit and delete entries, and generate, reveal or copy passwords.
+3. In **Settings**, change the current vault's master password, set the idle lock time or create an extra vault. The default is 5 minutes; choices are 1, 5, 15, 30 and 60 minutes. Leaving the panel also locks it. Only the main vault can create extra vaults; each vault has a different password.
+
+### Backup and restore
+
+- Export from an unlocked vault's **Settings**: a main-vault export contains all vaults, while an extra-vault export contains only that vault. Export does not remove local data.
+- If a main vault exists, import from its **Settings**. If none exists, select **Restore from a backup file** on the creation screen to merge a backup. Imports are unavailable in extra vaults.
+- The preview shows added, skipped and conflicting vaults. **Merge** adds only vaults not already present, keeping local copies; it does not merge entries or update existing vaults. **Replace all** requires confirmation and replaces every local vault with the file's contents; a file containing only an extra vault also removes the main vault. Back up first.
+- Backups still require each vault's password. After a password change, older backups still require the old password. Protect backups and passwords, and verify restoration with fictional data in a separate environment.
+
+### Security boundaries
+
+- New vaults use PBKDF2-SHA-256 (600,000 iterations and a random 16-byte salt) to derive an AES-256-GCM key, with a random 12-byte IV for each encryption. The plugin does not write the master password to localStorage, but ciphertext can be attacked with offline password guessing; 8 characters is only a minimum.
+- Local storage and backups are not entirely encrypted: metadata such as vault count, type, ID, timestamps, KDF parameters, salt, IV and ciphertext length is visible. Extra vaults are neither security sandboxes nor hidden vaults. Same-origin scripts, browser extensions, agents with browser or system access, host processes and malware may read, modify or delete data, or capture plaintext during entry and unlock. Do not give untrusted agents or testers access to a browser, session or device containing real credentials; use a separate environment without real secrets.
+- Plaintext and keys are present in page memory and the UI while unlocked. Locking cannot guarantee erasure of memory or clipboard history. Clipboard clearing after copying a password is best effort and may fail or overwrite later clipboard contents.
+- Data is isolated by browser and origin. Clearing browser data or changing browser or origin can lose it; forgotten passwords cannot be recovered. Protect backups: clearing browser data does not delete exported files. The plugin has not claimed an independent security audit and should not be your only credential store.
+- Imports reject unknown versions and malformed records, and replacement is blocked if local data cannot be read. Format checks cannot establish that ciphertext is untampered or unlockable without its password. Deletion across localStorage keys is not transactional and may partially complete on failure; back up before deleting.
+
+### Validation and contributing
+
+From this directory, using installed Node.js and npm:
+
+```sh
+npm run check
+npm test
+npm pack --dry-run --offline --ignore-scripts
+```
+
+These checks need no project dependency installation or network access; CI uses Node 20, 22 and 24. Runtime tests use synthetic data and do not cover the complete UI, cryptographic security, real-browser backup and restore, or Harness integration. Passing checks is not a security audit; a Harness and browser version compatibility matrix has not been established or verified.
+
+Contributions are welcome through [Issues](https://github.com/Veagau/dsh-account-vault/issues) or pull requests. Never submit real credentials or backups. For security issues, prefer [GitHub private vulnerability reporting](https://github.com/Veagau/dsh-account-vault/security) if enabled; otherwise open an Issue without sensitive details to request a private contact.
 
 ## 许可证 / License
 
-MIT，版权 © 2026 contributors。详见 [LICENSE](LICENSE)。
+[MIT](LICENSE) © 2026 contributors.
