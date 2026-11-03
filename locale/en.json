@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Account Vault",
+    "description": "A local password and account memo that stays encrypted until you enter your master password."
+  }
+}
