@@ -34,6 +34,26 @@ Download or clone this directory, then invoke the Harness **`plugin_manager` too
 - 主库导出包含所有库；附加库导出只包含当前库。备份仍需各自密码解锁。
 - 导入默认合并并保留本机版本；「覆盖全部」会替换本机所有库并需再次确认。没有主库时可从备份合并恢复。测试恢复时应使用独立环境和测试数据。
 
+## 贡献与验证 / Contributing and validation
+
+欢迎通过 [GitHub Issues](https://github.com/Veagau/dsh-account-vault/issues) 讨论非敏感问题，或提交 Pull Request。请使用虚构数据和独立的测试环境，勿提交真实账号、密码、主密码、备份或其他凭据。修改后使用已安装的 Node.js 和 npm，在仓库根目录运行：
+
+```sh
+npm run check
+npm pack --dry-run --offline --ignore-scripts
+```
+
+无需安装项目依赖或联网。第一条命令检查仓库中 JavaScript 的语法、JSON 能否解析以及关键文件存在且非空；第二条预览 npm 打包内容，不发布包。GitHub Actions 在 Node 20、22、24 上运行这些检查（Actions 本身需下载运行环境）。检查不执行插件、不验证 YAML 或包内容的语义，也不测试 UI、加密安全性、备份恢复、Harness 集成或浏览器兼容性。通过 CI 不代表安全审计或功能正确。Node 检查版本不等于 Harness 的支持版本：**尚未建立或验证 Harness / 浏览器版本兼容矩阵**。
+
+## 已知风险与报告 / Known risks and reporting
+
+- `clearFileRaw` 捕获并忽略 localStorage 删除异常；删除失败可能未被告知，不能据此确认数据已删除。
+- 备份解析会跳过不符合记录格式的条目，只要仍有有效条目就可能继续导入；尤其覆盖导入可能导致部分数据遗漏。先安全保留原始备份，在隔离环境用测试数据验证恢复。
+
+以上为已发现风险，**尚未修复**。发现其他问题时，不要在公开 Issue、PR 或日志中发布真实凭据、主密码、备份或可识别的敏感数据。优先通过 [GitHub 私密漏洞报告](https://github.com/Veagau/dsh-account-vault/security)（如仓库启用）联系维护者；若不可用，可先提交不含敏感细节的公开 Issue，请求私下联系方式。不要在得到安全渠道之前发送敏感材料。
+
+**English:** Checks cover JS syntax, JSON parsing, required nonempty files and an offline npm pack preview, not runtime, security, integration or restore correctness. Harness/browser compatibility has not been established. Storage deletion errors can be swallowed and malformed backup records silently skipped; these are not fixed. Report sensitive findings privately if enabled, never post real credentials or backups publicly.
+
 ## 文件 / Files
 
 - `package.json`、`cordis.patch.yml`：bundle 声明和配置。

@@ -5,6 +5,11 @@
   "license": "MIT",
   "type": "module",
   "description": "Encrypted account and password vault for the DeepSeek Harness Web UI, with decoy vaults opened by separate master passwords.",
+  "repository": { "type": "git", "url": "https://github.com/Veagau/dsh-account-vault.git" },
+  "bugs": { "url": "https://github.com/Veagau/dsh-account-vault/issues" },
+  "homepage": "https://github.com/Veagau/dsh-account-vault#readme",
+  "keywords": ["deepseek-harness", "dsh", "plugin", "account-vault", "password-manager"],
+  "scripts": { "check": "node scripts/check.mjs" },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
