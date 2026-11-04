@@ -1,0 +1,95 @@
+name: Release tgz
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to package (for example v2.2.1); never the selected branch'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      ASSET_NAME: dsh-account-vault.tgz
+      EXPECTED_PACKAGE: '@local/dsh-account-vault'
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Validate explicit tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo 'Expected an explicit vX.Y.Z tag'; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify tag and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.equal(pkg.name, process.env.EXPECTED_PACKAGE);
+          assert.equal(`v${pkg.version}`, process.env.RELEASE_TAG, 'Tag must match package.json version');
+          NODE
+      # These bundles ship JavaScript directly: checks/tests are the build gate.
+      # They have no dependencies; no npm install, registry login or npm publish.
+      - run: npm run check
+      - run: npm test
+      - name: Pack and validate distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          npm pack --offline --ignore-scripts --json --pack-destination release-assets > pack.json
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync, renameSync } from 'node:fs';
+          import { join } from 'node:path';
+          const [pack] = JSON.parse(readFileSync('pack.json', 'utf8'));
+          assert.equal(pack.name, process.env.EXPECTED_PACKAGE);
+          assert.equal(`v${pack.version}`, process.env.RELEASE_TAG);
+          const files = new Set(pack.files.map(file => file.path));
+          for (const file of ['package.json', 'index.js', 'client.js', 'cordis.patch.yml', 'icon.svg', 'locale/en.json', 'locale/zh.json']) {
+            assert.ok(files.has(file), `Missing distribution file: ${file}`);
+          }
+          renameSync(join('release-assets', pack.filename), join('release-assets', process.env.ASSET_NAME));
+          NODE
+      - name: Publish immutable asset to the exact tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Re-fetch immediately before upload: fail if the tag moved during the build.
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse 'FETCH_HEAD^{commit}')"
+          # Distinguish a missing release from authentication/network/server errors.
+          gh api --paginate "repos/$GH_REPO/releases" --jq '.[].tag_name' > release-tags.txt
+          if ! grep -Fxq -- "$RELEASE_TAG" release-tags.txt; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --generate-notes --latest=false
+          fi
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' > asset-names.txt
+          if grep -Fxq -- "$ASSET_NAME" asset-names.txt; then
+            echo "Refusing to overwrite existing asset: $ASSET_NAME"
+            exit 1
+          fi
+          # No --clobber: concurrent uploads also fail safely instead of replacing bytes.
+          gh release upload "$RELEASE_TAG" "release-assets/$ASSET_NAME"

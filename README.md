@@ -10,16 +10,29 @@
 
 ### 安装
 
-1. 下载或克隆仓库，保留本地目录。
-2. 请 DSH agent 用 `plugin_manager` 安装该目录，或直接调用工具（不是终端命令）：
+**市场安装（待收录）**：尚未确认进入插件市场，不能视为已上线；收录后可在市场搜索本插件。当前备用方案为 [GitHub Release tgz（v2.2.1）](https://github.com/Veagau/dsh-account-vault/releases/download/v2.2.1/dsh-account-vault.tgz)，不是 npm 包安装。
 
-   ```json
-   {"action":"install_bundle","target":"<account-vault 目录的绝对路径>"}
-   ```
+**Desktop 远程安装**：在应用内插件管理中使用上述完整 URL，或请当前 Desktop 的 DSH agent 调用 `plugin_manager`（工具调用，不是终端命令）：
 
-3. 按返回提示刷新页面，从侧边栏打开「账号保险库」。
+```json
+{"action":"install_bundle","target":"https://github.com/Veagau/dsh-account-vault/releases/download/v2.2.1/dsh-account-vault.tgz"}
+```
 
-需要支持 bundle 的 Harness、Web Crypto 和 localStorage（通常为 HTTPS 或 localhost）。安装影响当前 profile；Windows JSON 路径中的反斜杠写成 `\\`。
+**Web / CLI**：将 `<profile>` 换成实际运行 Web 的 profile，不要误装进 Desktop：
+
+```sh
+dsh plugin --profile <profile> add https://github.com/Veagau/dsh-account-vault/releases/download/v2.2.1/dsh-account-vault.tgz
+```
+
+也可请目标 Web 实例中的 agent 调用上述工具。
+
+**本地开发安装**：克隆仓库并保留目录，请 agent 用 `plugin_manager` 安装绝对路径：
+
+```json
+{"action":"install_bundle","target":"<account-vault 目录的绝对路径>"}
+```
+
+安装影响当前 profile 的所有会话。检查返回的 `application` 和 `warnings`，按提示刷新，再从侧边栏打开「账号保险库」。Windows JSON 路径中的反斜杠写成 `\\`；本地链接安装后不要删除源码目录。需要支持 bundle 的 Harness、Web Crypto 和 localStorage（通常为 HTTPS 或 localhost）。资产若尚不存在，请勿改用来源不明的下载；参见[分发与发布指南](docs/distribution.md)。
 
 ### 开始使用
 
@@ -61,16 +74,29 @@ Keep everyday accounts and passwords in DSH. Includes search, password generatio
 
 ### Install
 
-1. Download or clone the repository and keep the local directory.
-2. Ask a DSH agent to install it with `plugin_manager`, or call the tool directly (not a shell command):
+**Marketplace (pending inclusion)**: listing has not been confirmed; this is not a claim of availability. Once listed, search for this plugin in the market. The current fallback is the [GitHub Release tgz (v2.2.1)](https://github.com/Veagau/dsh-account-vault/releases/download/v2.2.1/dsh-account-vault.tgz), not an npm registry installation.
 
-   ```json
-   {"action":"install_bundle","target":"<absolute path to account-vault>"}
-   ```
+**Desktop remote installation**: use the full URL above in the application's plugin management, or ask the agent in the intended Desktop instance to call `plugin_manager` (a tool, not a shell command):
 
-3. Follow the returned instructions, refresh if needed and open **Account Vault** from the sidebar.
+```json
+{"action":"install_bundle","target":"https://github.com/Veagau/dsh-account-vault/releases/download/v2.2.1/dsh-account-vault.tgz"}
+```
 
-Requires a bundle-capable Harness, Web Crypto and localStorage, usually on HTTPS or localhost. Installation affects the current profile. Escape Windows path backslashes as `\\` in JSON.
+**Web / CLI**: replace `<profile>` with the profile actually serving your Web instance, not the Desktop profile:
+
+```sh
+dsh plugin --profile <profile> add https://github.com/Veagau/dsh-account-vault/releases/download/v2.2.1/dsh-account-vault.tgz
+```
+
+Alternatively, ask the agent in the target Web instance to call the tool above.
+
+**Local development installation**: clone and keep the repository, then ask the agent to install its absolute path:
+
+```json
+{"action":"install_bundle","target":"<absolute path to account-vault>"}
+```
+
+Installation affects all sessions in the current profile. Check `application` and `warnings`, follow refresh instructions, then open **Account Vault** from the sidebar. Escape Windows path backslashes as `\\` in JSON; keep the source directory for local linked installs. Requires a bundle-capable Harness, Web Crypto and localStorage (usually HTTPS or localhost). If the asset is not available yet, do not substitute an untrusted download; see the [distribution guide](docs/distribution.md).
 
 ### Get started
 
