@@ -1,6 +1,8 @@
 # 账号保险库 / Account Vault
 
-[English](#english)
+[English](#english) · [界面截图 / Screenshots](docs/screenshots.md)
+
+![账号列表 / Account list](docs/screenshots/account-list.png)
 
 DeepSeek Harness Web UI 的本地账号密码备忘插件。账号在浏览器中加密，保存在当前页面 origin 的 localStorage；支持多套保险库和加密备份。
 
